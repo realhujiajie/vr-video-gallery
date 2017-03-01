@@ -23,6 +23,8 @@
 
 </head>
 <body>
+        <div id="container"></div>
+        </div>
 </body>
 <script>
 
@@ -35,6 +37,7 @@ WebVRConfig = {
 <script src="script/VREffect.js"></script>
 <script src="script/webvr-polyfill.js"></script>
 <script src="script/webvr-manager.js"></script>
+<script src="script/WebVR.js"></script>
 <script src="script/socket.io.js"></script>
 <!-- <script src="script/art_socks.js"></script> -->
 
@@ -209,9 +212,11 @@ function createVideo(camera, scene, src) {
   video.load(); // must call after setting/changing source
   video.play();
 
+  var SCREEN_WIDTH = window.innerWidth;
+  var SCREEN_HEIGHT = window.innerHeight;
   videoImage = document.createElement( 'canvas' );
-  videoImage.width = 1024;
-  videoImage.height = 900;
+  videoImage.width = SCREEN_WIDTH/2;
+  videoImage.height = SCREEN_HEIGHT/2;
 
   videoImageContext = videoImage.getContext( '2d' );
   // background color if no video present
@@ -224,9 +229,9 @@ function createVideo(camera, scene, src) {
   var movieMaterial = new THREE.MeshBasicMaterial( { map: videoTexture, overdraw: true, side:THREE.DoubleSide } );
   // the geometry on which the movie will be displayed;
   //      movie image will be scaled to fit these dimensions.
-  var movieGeometry = new THREE.PlaneGeometry( 1020, 800, 1, 1 );
+  var movieGeometry = new THREE.PlaneGeometry( videoImage.width/2, videoImage.height/2, 1, 1 );
   var movieScreen = new THREE.Mesh( movieGeometry, movieMaterial );
-  movieScreen.position.set(-0.3,0,-100);
+  movieScreen.position.set(-0.3,0,-180);
   movieScreen.name = "MovieScreen";
   scene.add(movieScreen);
   //camera.position.set(0,150,10);
@@ -244,6 +249,99 @@ function renderVideo(){
      if ( videoTexture )
         videoTexture.needsUpdate = true;
   }
+}
+
+function initVideo(camera, scene, renderer , controls, effect) {
+  //copy from view-source:https://threejs.org/examples/webvr_video.html
+  var container = document.getElementById( 'container' );
+  container.addEventListener( 'click', function () {
+      video.play();
+  } );
+
+  //camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 2000 );
+  camera.layers.enable( 1 ); // render left view when no stereo available
+
+  // video
+
+  video = document.createElement( 'video' );
+  video.loop = true;
+  video.muted = true;
+  video.src = 'video/MaryOculus.webm';
+  video.setAttribute( 'webkit-playsinline', 'webkit-playsinline' );
+  video.play();
+
+  texture = new THREE.VideoTexture( video );
+  texture.minFilter = THREE.NearestFilter;
+  texture.maxFilter = THREE.NearestFilter;
+  texture.format = THREE.RGBFormat;
+  texture.generateMipmaps = false;
+
+  //scene = new THREE.Scene();
+
+  // left
+
+  var geometry = new THREE.SphereGeometry( 500, 60, 40 );
+  geometry.scale( - 1, 1, 1 );
+
+  var uvs = geometry.faceVertexUvs[ 0 ];
+
+  for ( var i = 0; i < uvs.length; i ++ ) {
+      for ( var j = 0; j < 3; j ++ ) {
+          uvs[ i ][ j ].x *= 0.5;
+      }
+  }
+
+  var material = new THREE.MeshBasicMaterial( { map: texture } );
+
+  var mesh = new THREE.Mesh( geometry, material );
+  mesh.rotation.y = - Math.PI / 2;
+  mesh.layers.set( 1 ); // display in left eye only
+  scene.add( mesh );
+
+  // right
+  var geometry = new THREE.SphereGeometry( 500, 60, 40 );
+  geometry.scale( - 1, 1, 1 );
+  var uvs = geometry.faceVertexUvs[ 0 ];
+  for ( var i = 0; i < uvs.length; i ++ ) {
+      for ( var j = 0; j < 3; j ++ ) {
+          uvs[ i ][ j ].x *= 0.5;
+          uvs[ i ][ j ].x += 0.5;
+      }
+  }
+
+  var material = new THREE.MeshBasicMaterial( { map: texture } );
+  var mesh = new THREE.Mesh( geometry, material );
+  mesh.rotation.y = - Math.PI / 2;
+  mesh.layers.set( 2 ); // display in right eye only
+  scene.add( mesh );
+
+  //
+
+  //renderer = new THREE.WebGLRenderer();
+  renderer.setClearColor( 0x101010 );
+  renderer.setPixelRatio( window.devicePixelRatio );
+  renderer.setSize( window.innerWidth, window.innerHeight );
+  container.appendChild( renderer.domElement );
+
+  //
+
+  //controls = new THREE.VRControls( camera );
+
+  //effect = new THREE.VREffect( renderer );
+  effect.scale = 0; // video doesnt need eye separation
+  effect.setSize( window.innerWidth, window.innerHeight );
+
+  if ( WEBVR.isAvailable() === true ) {
+
+      document.body.appendChild( WEBVR.getButton( effect ) );
+
+  }
+
+
+  //
+
+  window.addEventListener( 'resize', onWindowResize, false );
+
 }
 
 function createPlayersController(scene, stickMaterial, player_changed_handler) {
@@ -377,7 +475,8 @@ function createDemoController(imagesController, material2) {
     skybox = createSkyBox();
     skybox.name = "SkyBox";
     //scene.add(skybox);
-    createVideo(camera, scene, "abc");
+    //createVideo(camera, scene, "abc");
+    initVideo(camera, scene, renderer , controls, effect);
 
 
     materialNext = new THREE.MeshLambertMaterial({
@@ -439,7 +538,7 @@ function createDemoController(imagesController, material2) {
       nextButton.raycast();
 
       controls.update();
-      renderVideo();
+      //renderVideo();
       manager.render(scene, camera, timestamp);
       requestAnimationFrame(that.animate);
   }
@@ -508,6 +607,14 @@ function onKey(event) {
 }
 
 window.addEventListener('keydown', onKey, true);
+function onWindowResize() {
+
+    //camera.aspect = window.innerWidth / window.innerHeight;
+    //camera.updateProjectionMatrix();
+
+    //effect.setSize( window.innerWidth, window.innerHeight );
+
+}
 
 </script>
 </html>
