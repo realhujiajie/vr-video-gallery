@@ -25,16 +25,6 @@
 <body>
 </body>
 <script>
-  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-
-  ga('create', 'UA-70781866-1', 'auto');
-  ga('send', 'pageview');
-
-</script>
-<script>
 
 WebVRConfig = {
   PREVENT_DISTORTION: true
@@ -50,7 +40,7 @@ WebVRConfig = {
 
 <script>
 THREE.ImageUtils.crossOrigin = '';
-var createGazeButton = function(raycaster, clock, obj, gazeEnter, gazeExit) {
+var createGazeButton = function(raycaster, clock, obj, gazeEnter) {
   var that = {};
   var intersection;
 
@@ -119,11 +109,6 @@ function createImagesController(images) {
 
   for (var i=0; i<images.length; i++) {
     textures.push(THREE.ImageUtils.loadTexture(images[i]));
-  }
-
-  that.addImage = function(msg) {
-   textures.push(THREE.ImageUtils.loadTexture(msg));
-   that.goTo(textures.length-1);
   }
 
   that.goNext = function() {
@@ -349,29 +334,22 @@ function createPlayersController(scene, stickMaterial, player_changed_handler) {
     }
   }
 
-  // that.getPlayer = function(player_id) {
-  //   return null;
-  // }
-
   function addStick(stick) {
     stick.position.z = 0;
     stick.position.y = -0.5;
     scene.add(stick);
   };
 
-
   return that;
 };
 
-function createDemoController(imagesController, material2, shareCurrent, notifyTrophie) {
+function createDemoController(imagesController, material2) {
   var that = {};
   var raycaster, renderer, camera, controls, manager;
 
   var backButton, nextButton;
 
   var materialNext, materialBack;
-
-  var cube;
 
   var intersection, raycastedObjects;
 
@@ -384,7 +362,6 @@ function createDemoController(imagesController, material2, shareCurrent, notifyT
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     document.body.appendChild(renderer.domElement);
-    //camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000);
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
     controls = new THREE.VRControls(camera);
     var effect = new THREE.VREffect(renderer);
@@ -425,14 +402,6 @@ function createDemoController(imagesController, material2, shareCurrent, notifyT
     nextCube.name = "NextCube";
     scene.add(nextCube);
 
-    trophie = new THREE.Mesh(geometry, material2);
-    trophie.position.y = 1;
-    trophie.position.z = 0;
-    trophie.name = "TrophieCube";
-    trophie.position.x = 0.4;
-
-    scene.add(trophie);
-
     var geometry = new THREE.BoxGeometry(2, 0.1, 2);
     var floor = new THREE.Mesh(geometry, material2);
     floor.name = "Floor";
@@ -441,103 +410,25 @@ function createDemoController(imagesController, material2, shareCurrent, notifyT
     floor.position.y = -1;
     scene.add(floor);
 
-    var geometry = new THREE.BoxGeometry(0.5, 0.8, 0.8);
-    var displayBox = new THREE.Mesh(geometry, material2);
-
-    // Position cube mesh
-    displayBox.position.x = -0.6;
-    displayBox.position.z = 0;
-    displayBox.name = "DisplayBox";
-    scene.add(displayBox);
-
-
-    var geometry = new THREE.CylinderGeometry( 1, 2, 10, 32 );
-    var cilinder = new THREE.Mesh(geometry, material2);
-    cilinder.rotation.z = 0.4;
-    cilinder.position.z = 4;
-    cilinder.name = "Cilinder";
-
-    cilinder.position.y = 1;
-    scene.add(cilinder);
-
-
     var geometry = new THREE.BoxGeometry(0.1, 0.6, 0.6);
 
-    cube = new THREE.Mesh(geometry, material2);
-    cube.position.z = -1;
-    scene.add(cube);
-    cube.name = "UnknowCube";
-
-    raycastedObjects = [skybox, cilinder, floor];
-
-
-
-
+    raycastedObjects = [skybox,  floor];
 
     function backPressed() {
       imagesController.goBack();
-      shareCurrent(imagesController.currentIndex());
     };
-
 
     backButton  = createGazeButton(raycaster, clock, backCube, backPressed);
     nextButton = createGazeButton(raycaster, clock, nextCube, nextPressed);
-
-    trophieButton = createGazeButton(raycaster, clock, trophie, function(){
-      score++;
-      skybox.rotation.y = 0;
-      skybox.rotation.z = 0;
-
-      var minVec = new THREE.Vector3(-0.4,0.5,-0.5);
-      var maxVec = new THREE.Vector3(0.4,1,0,2);
-
-      var x = -1 + Math.random() * 2;
-      var y = -1 + Math.random() * 2;
-      var z = -1 + Math.random() * 3;
-
-      var vec = new THREE.Vector3(x,y,z).clamp(minVec, maxVec);
-      notifyTrophie({
-        'x': vec.x,
-        'y': vec.y,
-        'z': vec.z,
-        'player_id': playersController.current_player['id']
-
-      })
-
-      that.trophieCollected(vec.x, vec.y, vec.z);
-    });
-
   };
-
 
     function nextPressed() {
       imagesController.goNext();
-      shareCurrent(imagesController.currentIndex());
-    }
-
-
-    that.trophieCollected = function (x, y, z) {
-      trophie.position.x = x;
-      trophie.position.y = y;
-      trophie.position.z = z;
-
-      nextPressed();
-
-      trophie.visible = false;
-
-      window.setTimeout(function()
-        {
-            trophie.visible = true;
-        }, 3000);
     }
 
     that.animate = function (timestamp) {
 
       playersController.updatePlayer(camera, raycaster, raycastedObjects);
-
-
-      cube.rotation.y += 0.01;
-      trophie.rotation.y += 0.02;
 
       if (score > 0 && score % 3 == 0) {
         skybox.rotation.y += 0.01;
@@ -546,7 +437,6 @@ function createDemoController(imagesController, material2, shareCurrent, notifyT
 
       backButton.raycast();
       nextButton.raycast();
-      trophieButton.raycast();
 
       controls.update();
       renderVideo();
@@ -576,16 +466,8 @@ var material2 = new THREE.MeshLambertMaterial({
 });
 
 
-function shareCurrent(index) {
-  socket.emit('current-art', {'index': index});
-}
-
-var demoController = createDemoController(imagesController, material2, shareCurrent,
-function(message) {
-  socket.emit('trophie-collected', message);
-});
+var demoController = createDemoController(imagesController, material2);
 demoController.run();
-
 
 var playersController = createPlayersController(scene, material2, function(message) {
   socket.emit('player-stick', message);
@@ -611,44 +493,8 @@ socket.on('message', function (message) {
 
 });
 
-socket.on('trophie-collected', function (message) {
-  if (playersController.current_player['id'] != message.player_id) {
-    demoController.trophieCollected(message.x, message.y, message.z);
-  }
-});
-
-function setCurrent(index) {
-  imagesController.goTo(index);
-  demoController.updateScene();
-}
-
-socket.on('current-art', function(msg){
-  setCurrent(msg.index);
-});
-
 socket.on('player-stick', function(msg){
   playersController.handleMessage(msg);
-});
-
-socket.on('disconnected_guy', function(msg){
-  playersController.removePlayer(msg);
-});
-
-socket.on('new_guy', function(msg){
-  playersController.addPlayer(msg);
-});
-
-socket.on('add_image', function(msg){
-  if (msg.reddit != null) {
-    if (msg.reddit ==  getParameterByName("reddit")) {
-      imagesController.addImage(msg.url);
-      demoController.updateScene();
-    }
-  } else {
-    imagesController.addImage(msg.url);
-    demoController.updateScene();
-  }
-
 });
 
 demoController.updateScene();
