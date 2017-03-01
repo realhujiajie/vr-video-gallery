@@ -57,9 +57,9 @@ var createGazeButton = function(raycaster, clock, obj, gazeEnter, videoId) {
     if (intersection !== null && !that.magicPressedBack) {
       obj.scale.x *=(1.01+clock.getDelta());
       obj.scale.y *=(1.01+clock.getDelta());
-      obj.scale.clampScalar(1,3);
+      obj.scale.clampScalar(1,2);
 
-      if (that.toggle > 0.01 || obj.scale.x >= 3) {
+      if (that.toggle > 0.01 || obj.scale.x >= 2) {
         gazeEnter(videoId);
         that.magicPressedBack = true;
       }
@@ -70,7 +70,7 @@ var createGazeButton = function(raycaster, clock, obj, gazeEnter, videoId) {
       that.toggle = 0;
       obj.scale.x *=0.99;
       obj.scale.y *=0.99;
-      obj.scale.clampScalar(1,3);
+      obj.scale.clampScalar(1,2);
     }
 
 
@@ -335,6 +335,11 @@ function createDemoController(imagesController, materialFloor) {
 	cube4.position.x = -0.2;
 	scene.add(cube4);
 
+	var cube5 = new THREE.Mesh(geometry, videoImage5);
+	cube5.position.z = -0.5;
+	cube5.position.x = 0;
+	scene.add(cube5);
+
     var geometry = new THREE.BoxGeometry(2, 0.1, 2);
     var floor = new THREE.Mesh(geometry, materialFloor);
 
@@ -349,12 +354,11 @@ function createDemoController(imagesController, materialFloor) {
       //window.location.href=('http://127.0.0.1:9000');
     };
 
-
     videoButton1 = createGazeButton(raycaster, clock, cube1, Pressed, 1);
     videoButton2 = createGazeButton(raycaster, clock, cube2, Pressed, 2);
-	videoButton3 = createGazeButton(raycaster, clock, cube3, Pressed, 3);
-	videoButton4 = createGazeButton(raycaster, clock, cube4, Pressed, 4);
-	//videoButton5 = createGazeButton(raycaster, clock, cube5, Pressed, 5);
+    videoButton3 = createGazeButton(raycaster, clock, cube3, Pressed, 3);
+    videoButton4 = createGazeButton(raycaster, clock, cube4, Pressed, 4);
+    videoButton5 = createGazeButton(raycaster, clock, cube5, Pressed, 5);
   };
 
     that.animate = function (timestamp) {
@@ -368,9 +372,9 @@ function createDemoController(imagesController, materialFloor) {
 
       videoButton1.raycast();
       videoButton2.raycast();
-	  videoButton3.raycast();
-	  videoButton4.raycast();
-	  //videoButton5.raycast();
+      videoButton3.raycast();
+      videoButton4.raycast();
+      videoButton5.raycast();
 
       controls.update();
       manager.render(scene, camera, timestamp);
@@ -381,9 +385,9 @@ function createDemoController(imagesController, materialFloor) {
     materialFloor.map = imagesController.textures[0];
     videoImage1.map = imagesController.textures[1];
     videoImage2.map = imagesController.textures[2];
-	videoImage3.map = imagesController.textures[3];
-	videoImage4.map = imagesController.textures[4];
-	//videoImage5.map = imagesController.textures[5];
+    videoImage3.map = imagesController.textures[3];
+    videoImage4.map = imagesController.textures[4];
+    videoImage5.map = imagesController.textures[5];
   }
   return that;
 };
