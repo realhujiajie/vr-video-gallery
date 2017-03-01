@@ -251,6 +251,22 @@ function renderVideo(){
   }
 }
 
+function pauseVideo() {
+  video.pause();
+}
+
+function resumeVideo() {
+  video.play();
+}
+
+function showVideo() {
+  camera.layers.enable( 1 );
+}
+
+function hideVideo() {
+  camera.layers.disable( 1 );
+}
+
 function initVideo(camera, scene, renderer , controls, effect) {
   //copy from view-source:https://threejs.org/examples/webvr_video.html
   var container = document.getElementById( 'container' );
@@ -441,9 +457,10 @@ function createPlayersController(scene, stickMaterial, player_changed_handler) {
   return that;
 };
 
+var camera;
 function createDemoController(imagesController, material2) {
   var that = {};
-  var raycaster, renderer, camera, controls, manager;
+  var raycaster, renderer, controls, manager;
 
   var backButton, nextButton;
 
@@ -601,8 +618,21 @@ demoController.updateScene();
 demoController.animate();
 
 function onKey(event) {
+  console.log(event.keyCode);
   if (event.keyCode == 90) {
     controls.resetSensor();
+  }
+  if (event.keyCode == 49) { //1 pause
+    pauseVideo();
+  }
+  if (event.keyCode == 50) { //2 resume
+    resumeVideo();
+  }
+  if (event.keyCode == 51) { //3 hide
+    hideVideo();
+  }
+  if (event.keyCode == 52) { //4 show
+    showVideo();
   }
 }
 
