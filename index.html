@@ -267,6 +267,12 @@ function hideVideo() {
   camera.layers.disable( 1 );
 }
 
+function switchVideo(src) {
+  video.src = src;
+  video.play();
+  showVideo();
+}
+
 function initVideo(camera, scene, renderer , controls, effect) {
   //copy from view-source:https://threejs.org/examples/webvr_video.html
   var container = document.getElementById( 'container' );
@@ -633,6 +639,9 @@ function onKey(event) {
   }
   if (event.keyCode == 52) { //4 show
     showVideo();
+  }
+  if (event.keyCode == 53) { //5 switch
+    switchVideo("video/1.mp4");
   }
 }
 
