@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<!-- Find out more at http://gregdmd.com/blog/2015/11/24/campjs-project-artsocks-vr/ -->
+<html>
+<head>
+  <title>Web VR boilerplate</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <style type="text/css">
+    body {
+      width: 100%;
+      height: 100%;
+      background-color: #000;
+      color: #fff;
+      margin: 0px;
+      padding: 0;
+      overflow: hidden;
+    }
+  </style>
+
+</head>
+<body>
+</body>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-70781866-1', 'auto');
+  ga('send', 'pageview');
+
+</script>
+<script>
+
+WebVRConfig = {
+  PREVENT_DISTORTION: true
+};
+</script>
+<script src="script/three.js"></script>
+<script src="script/VRControls.js"></script>
+<script src="script/VREffect.js"></script>
+<script src="script/webvr-polyfill.js"></script>
+<script src="script/webvr-manager.js"></script>
+<script src="script/socket.io.js"></script>
+<!-- <script src="script/art_socks.js"></script> -->
+
+<script>
+THREE.ImageUtils.crossOrigin = '';
+var createGazeButton = function(raycaster, clock, obj, gazeEnter, gazeExit) {
+  var that = {};
+  var intersection;
+
+  that.magicPressedBack = false;
+  that.toggle = 0;
+
+  that.raycast = function() {
+    var intersections = raycaster.intersectObject( obj );
+    intersection = ( intersections.length ) > 0 ? intersections[ 0 ] : null;
+
+
+    if (intersection !== null && !that.magicPressedBack) {
+      obj.scale.x *=(1.01+clock.getDelta());
+      obj.scale.y *=(1.01+clock.getDelta());
+      obj.scale.clampScalar(1,2);
+
+      if (that.toggle > 0.01 || obj.scale.x >= 2) {
+        gazeEnter()
+        that.magicPressedBack = true;
+      }
+      that.toggle += clock.getDelta();
+    }
+
+    if (intersection == null) {
+      that.toggle = 0;
+      obj.scale.x *=0.99;
+      obj.scale.y *=0.99;
+      obj.scale.clampScalar(1,2);
+    }
+
+
+    if (intersection == null && that.magicPressedBack) {
+
+      that.magicPressedBack = false;
+    }
+
+  };
+
+  return that;
+}
+
+function createSkyBox() {
+  var boxWidth = 10;
+  var texture = THREE.ImageUtils.loadTexture(
+    'img/box.png'
+  );
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(boxWidth, boxWidth);
+
+  var geometry = new THREE.BoxGeometry(boxWidth, boxWidth, boxWidth);
+  var material = new THREE.MeshBasicMaterial({
+    map: texture,
+    color: 0x01BE00,
+    side: THREE.BackSide
+  });
+
+  return new THREE.Mesh(geometry, material);
+};
+
+function createImagesController(images) {
+  var that = {};
+  var current = 0;
+
+  var textures = [];
+
+  for (var i=0; i<images.length; i++) {
+    textures.push(THREE.ImageUtils.loadTexture(images[i]));
+  }
+
+  that.addImage = function(msg) {
+   textures.push(THREE.ImageUtils.loadTexture(msg));
+   that.goTo(textures.length-1);
+  }
+
+  that.goNext = function() {
+    current = indexAfter(current);
+  }
+
+  that.goBack = function() {
+    current = indexBefore(current);
+  }
+
+  that.goTo = function(index) {
+    current = index;
+  }
+
+  that.currentIndex = function() {
+    return current;
+  }
+
+  that.previousTexture = function() {
+    return textures[indexBefore(current)];
+  }
+
+  that.nextTexture = function() {
+    return textures[indexAfter(current)];
+  }
+
+  that.currentTexture = function() {
+    return textures[current];
+  }
+
+  function indexBefore(i) {
+    var result;
+    result = i - 1;
+    if (result < 0) {
+      result = textures.length - 1;
+    }
+    return result;
+  }
+
+  function indexAfter(i) {
+    var result;
+    result = i + 1;
+    if (result == textures.length) {
+      result = 0;
+    }
+    return result;
+  }
+
+  return that;
+};
+
+function createGazeController(scene, clock, numberOfDots) {
+  var that = {};
+
+  var spheres, spheresIndex=0, toggle =0, clock;
+
+  var intersection = null;
+
+  spheres = [];
+  spheresIndex = 0;
+  toggle =0;
+
+  var sphereGeometry = new THREE.SphereGeometry( 0.01, 32, 32 );
+  var sphereMaterial = new THREE.MeshBasicMaterial( { color: 0xff0000, shading: THREE.FlatShading } );
+
+  for ( var i = 0; i < numberOfDots; i++ ) {
+
+    var sphere = new THREE.Mesh( sphereGeometry, sphereMaterial );
+    scene.add( sphere );
+    spheres.push( sphere );
+
+  }
+
+  that.update = function(point) {
+
+
+    if ( toggle > 0.01) {
+
+      spheres[ spheresIndex ].position.copy( point );
+      spheres[ spheresIndex ].scale.set( 1, 1, 1 );
+      spheresIndex = ( spheresIndex + 1 ) % spheres.length;
+
+      toggle = 0;
+
+    }
+
+    toggle += clock.getDelta();
+  }
+
+  return that;
+}
+
+
+function createPlayersController(scene, stickMaterial, player_changed_handler) {
+  var that = {};
+  var intersection;
+  var stickGeometry = new THREE.BoxGeometry(0.05, 0.1, 2);
+
+  var players = {};
+
+  function createPlayer(my_id, numberOfDots) {
+    var player_stick = new THREE.Mesh(stickGeometry, stickMaterial);
+
+    addStick(player_stick);
+    return {
+      "id": my_id,
+      "stick": player_stick,
+      "gazeController": createGazeController(scene, clock, numberOfDots)
+    }
+  }
+
+  var current_player = createPlayer(null, 40);
+
+  that.current_player = current_player;
+
+  that.setPlayerId = function(player_id){
+    current_player["id"] = player_id;
+  }
+
+  that.updatePlayer = function(camera, raycaster, raycastedObjects) {
+
+   raycaster.ray.origin.setFromMatrixPosition( camera.matrixWorld );
+    raycaster.ray.direction.set( 0, 0, 0.5 ).unproject( camera ).sub( raycaster.ray.origin ).normalize();
+
+    var intersections = raycaster.intersectObjects( raycastedObjects );
+    intersection = ( intersections.length ) > 0 ? intersections[ 0 ] : null;
+
+
+    if (intersection !== null) {
+      current_player["gazeController"].update(intersection.point);
+    }
+
+    if (current_player["stick"].rotation.y != camera.rotation.y && current_player["stick"].rotation.x != camera.rotation.x) {
+
+      current_player["stick"].rotation.y = camera.rotation.y;
+      current_player["stick"].rotation.x = camera.rotation.x;
+      player_changed_handler(
+          {'who': current_player["id"],
+          'x': current_player["stick"].rotation.x,
+          'y': current_player["stick"].rotation.y,
+          'gaze': {
+            'x': intersection.point.x,
+            'y': intersection.point.y,
+            'z': intersection.point.z
+          }
+          }
+      );
+    }
+  }
+
+  that.handleMessage = function(msg) {
+    if (msg.who == current_player["id"]) {
+      return;
+    }
+    var otherGuy = players[msg.who];
+    if (otherGuy == null) {
+      players[msg.who] = createPlayer(msg.who, 1);
+      otherGuy = players[msg.who];
+    }
+    var otherStick = otherGuy["stick"];
+    otherStick.rotation.y = msg.y;
+    otherStick.rotation.x = msg.x;
+
+
+    otherGuy["gazeController"].update(new THREE.Vector3(msg.gaze.x, msg.gaze.y, msg.gaze.z));
+  };
+
+  that.addPlayer = function(player_id) {
+    if(player_id != current_player["id"]) {
+        players[player_id] = createPlayer(player_id, 1);
+      }
+  };
+
+  that.removePlayer = function(player_id) {
+    var leaving_player = players[player_id];
+    if (leaving_player && player_id != current_player["id"]) {
+      scene.remove(leaving_player["stick"]);
+      players[player_id] = null;
+    }
+  }
+
+  // that.getPlayer = function(player_id) {
+  //   return null;
+  // }
+
+  function addStick(stick) {
+    stick.position.z = 0;
+    stick.position.y = -0.5;
+    scene.add(stick);
+  };
+
+
+  return that;
+};
+
+function createDemoController(imagesController, material2, shareCurrent, notifyTrophie) {
+  var that = {};
+  var raycaster, renderer, camera, controls, manager;
+
+  var backButton, nextButton;
+
+  var materialNext, materialBack;
+
+  var cube;
+
+  var intersection, raycastedObjects;
+
+  var trophie, trophieButton, skybox;
+  var score = 0;
+
+  that.run = function() {
+
+    raycaster = new THREE.Raycaster();
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+    controls = new THREE.VRControls(camera);
+    var effect = new THREE.VREffect(renderer);
+    effect.setSize(window.innerWidth, window.innerHeight);
+
+    manager = new WebVRManager(renderer, effect, {hideButton: false});
+
+    clock = new THREE.Clock();
+
+    var ambient = new THREE.AmbientLight( 0xFFFFFF );
+    scene.add( ambient );
+
+    skybox = createSkyBox();
+    scene.add(skybox);
+
+
+    materialNext = new THREE.MeshLambertMaterial({
+      map: imagesController.nextTexture()
+    });
+
+    materialBack = new THREE.MeshLambertMaterial({
+     map: imagesController.previousTexture()
+    });
+
+
+    var geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+    var backCube = new THREE.Mesh(geometry, materialBack);
+    backCube.position.z = -0.5;
+    backCube.position.x = -0.3;
+    scene.add(backCube);
+
+    var nextCube = new THREE.Mesh(geometry, materialNext);
+    nextCube.position.z = -0.5;
+    nextCube.position.x = 0.3;
+    scene.add(nextCube);
+
+    trophie = new THREE.Mesh(geometry, material2);
+    trophie.position.y = 1;
+    trophie.position.z = 0;
+    trophie.position.x = 0.4;
+
+    scene.add(trophie);
+
+    var geometry = new THREE.BoxGeometry(2, 0.1, 2);
+    var floor = new THREE.Mesh(geometry, material2);
+
+    // Position cube mesh
+    floor.position.y = -1;
+    scene.add(floor);
+
+    var geometry = new THREE.BoxGeometry(0.5, 0.8, 0.8);
+    var displayBox = new THREE.Mesh(geometry, material2);
+
+    // Position cube mesh
+    displayBox.position.x = -0.6;
+    displayBox.position.z = 0;
+    scene.add(displayBox);
+
+
+    var geometry = new THREE.CylinderGeometry( 1, 2, 10, 32 );
+    var cilinder = new THREE.Mesh(geometry, material2);
+    cilinder.rotation.z = 0.4;
+    cilinder.position.z = 4;
+
+    cilinder.position.y = 1;
+    scene.add(cilinder);
+
+
+    var geometry = new THREE.BoxGeometry(0.1, 0.6, 0.6);
+
+    cube = new THREE.Mesh(geometry, material2);
+    cube.position.z = -1;
+    scene.add(cube);
+
+    raycastedObjects = [skybox, cilinder, floor];
+
+
+
+
+
+    function backPressed() {
+      imagesController.goBack();
+      shareCurrent(imagesController.currentIndex());
+    };
+
+
+    backButton  = createGazeButton(raycaster, clock, backCube, backPressed);
+    nextButton = createGazeButton(raycaster, clock, nextCube, nextPressed);
+
+    trophieButton = createGazeButton(raycaster, clock, trophie, function(){
+      score++;
+      skybox.rotation.y = 0;
+      skybox.rotation.z = 0;
+
+      var minVec = new THREE.Vector3(-0.4,0.5,-0.5);
+      var maxVec = new THREE.Vector3(0.4,1,0,2);
+
+      var x = -1 + Math.random() * 2;
+      var y = -1 + Math.random() * 2;
+      var z = -1 + Math.random() * 3;
+
+      var vec = new THREE.Vector3(x,y,z).clamp(minVec, maxVec);
+      notifyTrophie({
+        'x': vec.x,
+        'y': vec.y,
+        'z': vec.z,
+        'player_id': playersController.current_player['id']
+
+      })
+
+      that.trophieCollected(vec.x, vec.y, vec.z);
+    });
+
+  };
+
+
+    function nextPressed() {
+      imagesController.goNext();
+      shareCurrent(imagesController.currentIndex());
+    }
+
+
+    that.trophieCollected = function (x, y, z) {
+      trophie.position.x = x;
+      trophie.position.y = y;
+      trophie.position.z = z;
+
+      nextPressed();
+
+      trophie.visible = false;
+
+      window.setTimeout(function()
+        {
+            trophie.visible = true;
+        }, 3000);
+    }
+
+    that.animate = function (timestamp) {
+
+      playersController.updatePlayer(camera, raycaster, raycastedObjects);
+
+
+      cube.rotation.y += 0.01;
+      trophie.rotation.y += 0.02;
+
+      if (score > 0 && score % 3 == 0) {
+        skybox.rotation.y += 0.01;
+        skybox.rotation.z += 0.01;
+      }
+
+      backButton.raycast();
+      nextButton.raycast();
+      trophieButton.raycast();
+
+      controls.update();
+      manager.render(scene, camera, timestamp);
+      requestAnimationFrame(that.animate);
+  }
+
+  that.updateScene = function() {
+    material2.map = imagesController.currentTexture();
+    materialNext.map = imagesController.nextTexture();
+    materialBack.map = imagesController.previousTexture();
+  }
+  return that;
+};
+
+</script>
+
+<script>
+
+var scene = new THREE.Scene();
+
+var images = ['img/box.png', 'img/1.jpg', 'img/2.jpg', 'img/3.jpg', 'img/4.jpg', 'img/5.jpg']
+var imagesController = createImagesController(images);
+
+var material2 = new THREE.MeshLambertMaterial({
+  map: imagesController.currentTexture()
+});
+
+
+function shareCurrent(index) {
+  socket.emit('current-art', {'index': index});
+}
+
+var demoController = createDemoController(imagesController, material2, shareCurrent,
+function(message) {
+  socket.emit('trophie-collected', message);
+});
+demoController.run();
+
+
+var playersController = createPlayersController(scene, material2, function(message) {
+  socket.emit('player-stick', message);
+}
+);
+
+function getParameterByName(name) {
+    name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
+    var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+        results = regex.exec(location.search);
+    return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+}
+
+var socket = io();
+socket.on('message', function (message) {
+  console.log("connection madee", message);
+  playersController.setPlayerId(message);
+
+  var reddit_query = getParameterByName("reddit");
+  if (reddit_query != "") {
+    socket.emit('reddit_query', reddit_query);
+  }
+
+});
+
+socket.on('trophie-collected', function (message) {
+  if (playersController.current_player['id'] != message.player_id) {
+    demoController.trophieCollected(message.x, message.y, message.z);
+  }
+});
+
+function setCurrent(index) {
+  imagesController.goTo(index);
+  demoController.updateScene();
+}
+
+socket.on('current-art', function(msg){
+  setCurrent(msg.index);
+});
+
+socket.on('player-stick', function(msg){
+  playersController.handleMessage(msg);
+});
+
+socket.on('disconnected_guy', function(msg){
+  playersController.removePlayer(msg);
+});
+
+socket.on('new_guy', function(msg){
+  playersController.addPlayer(msg);
+});
+
+socket.on('add_image', function(msg){
+  if (msg.reddit != null) {
+    if (msg.reddit ==  getParameterByName("reddit")) {
+      imagesController.addImage(msg.url);
+      demoController.updateScene();
+    }
+  } else {
+    imagesController.addImage(msg.url);
+    demoController.updateScene();
+  }
+
+});
+
+demoController.updateScene();
+
+demoController.animate();
+
+function onKey(event) {
+  if (event.keyCode == 90) {
+    controls.resetSensor();
+  }
+}
+
+window.addEventListener('keydown', onKey, true);
+
+</script>
+</html>
